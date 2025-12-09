@@ -1,0 +1,91 @@
+# -----------------------------------------
+# 1) RABBITMQ SERVICE (ClusterIP)
+# -----------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  namespace: roboshop
+spec:
+  selector:
+    project: roboshop
+    component: rabbitmq
+    tier: db
+  ports:
+    - protocol: TCP
+      port: 5672        # AMQP service port
+      targetPort: 5672  # RabbitMQ container port
+
+---
+# -----------------------------------------
+# 2) RABBITMQ HEADLESS SERVICE (For StatefulSet DNS)
+# -----------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq-headless
+  namespace: roboshop
+spec:
+  clusterIP: None       # Headless for stable network identities
+  selector:
+    project: roboshop
+    component: rabbitmq
+    tier: db
+  ports:
+    - protocol: TCP
+      port: 5672
+      targetPort: 5672
+
+---
+# -----------------------------------------
+# 3) RABBITMQ STATEFULSET
+# -----------------------------------------
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rabbitmq
+  namespace: roboshop
+spec:
+  serviceName: "rabbitmq-headless"   # Must match headless service name
+  replicas: 2
+  selector:
+    matchLabels:
+      project: roboshop
+      component: rabbitmq
+      tier: db
+  template:
+    metadata:
+      labels:
+        project: roboshop
+        component: rabbitmq
+        tier: db
+    spec:
+      containers:
+      - name: rabbitmq
+        image: rabbitmq:3
+
+        # Persistent Data Directory
+        volumeMounts:
+        - name: rabbitmq
+          mountPath: /var/lib/rabbitmq
+
+        # Default Credentials
+        env:
+        - name: RABBITMQ_DEFAULT_USER
+          value: "roboshop"
+        - name: RABBITMQ_DEFAULT_PASS
+          value: "roboshop123"
+
+  # --------------------------------------
+  # 4) PVC TEMPLATE (One PVC Per Pod)
+  # --------------------------------------
+  volumeClaimTemplates:
+  - metadata:
+      name: rabbitmq
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      storageClassName: "roboshop-ebs"
+      resources:
+        requests:
+          storage: 1Gi

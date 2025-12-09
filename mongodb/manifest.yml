@@ -1,0 +1,87 @@
+# -----------------------------------------
+# 1) MONGODB SERVICE (ClusterIP)
+# -----------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb
+  namespace: roboshop
+spec:
+  selector:
+    project: roboshop
+    component: mongodb
+    tier: db
+  ports:
+    - protocol: TCP
+      port: 27017        # Service port
+      targetPort: 27017  # Container port
+
+---
+# -----------------------------------------
+# 2) MONGODB HEADLESS SERVICE
+#    Required for StatefulSet stable DNS
+# -----------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-headless
+  namespace: roboshop
+spec:
+  clusterIP: None         # Makes it headless
+  selector:
+    project: roboshop
+    component: mongodb
+    tier: db
+  ports:
+    - protocol: TCP
+      port: 27017
+      targetPort: 27017
+
+---
+# -----------------------------------------
+# 3) MONGODB STATEFULSET
+#    Provides stable identity + persistent storage
+# -----------------------------------------
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongodb
+  namespace: roboshop
+spec:
+  serviceName: "mongodb-headless"    # Must match headless service
+  replicas: 2                        # Number of MongoDB pods
+  selector:
+    matchLabels:
+      project: roboshop
+      component: mongodb
+      tier: db
+  template:
+    metadata:
+      labels:
+        project: roboshop
+        component: mongodb
+        tier: db
+    spec:
+      containers:
+      - name: mongodb
+        image: venkatesh990/mongodb:v1
+        ports:
+        - containerPort: 27017
+        volumeMounts:
+        - name: mongodb
+          mountPath: /data/db        # MongoDB data directory
+
+  # ------------------------------
+  # 4) PERSISTENT VOLUME CLAIMS
+  #    Each pod gets its own PVC
+  # ------------------------------
+  volumeClaimTemplates:
+  - metadata:
+      name: mongodb
+    spec:
+      accessModes: 
+        - ReadWriteOnce
+      storageClassName: "roboshop-ebs"
+      resources:
+        requests:
+          storage: 1Gi

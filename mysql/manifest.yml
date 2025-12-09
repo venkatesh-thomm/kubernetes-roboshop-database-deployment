@@ -1,0 +1,109 @@
+# -----------------------------------------
+# 1) CONFIGMAP (MySQL Configuration)
+# -----------------------------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql
+  namespace: roboshop
+data:
+  my.cnf: |
+    [mysqld]
+    innodb_redo_log_capacity = 2G
+
+---
+# -----------------------------------------
+# 2) MYSQL SERVICE (ClusterIP)
+# -----------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: roboshop
+spec:
+  selector:
+    project: roboshop
+    component: mysql
+    tier: db
+  ports:
+    - protocol: TCP
+      port: 3306        # Service port
+      targetPort: 3306  # Container port
+
+---
+# -----------------------------------------
+# 3) MYSQL HEADLESS SERVICE (For StatefulSet DNS)
+# -----------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-headless
+  namespace: roboshop
+spec:
+  clusterIP: None       # Makes it headless
+  selector:
+    project: roboshop
+    component: mysql
+    tier: db
+  ports:
+    - protocol: TCP
+      port: 3306
+      targetPort: 3306
+
+---
+# -----------------------------------------
+# 4) MYSQL STATEFULSET
+# -----------------------------------------
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+  namespace: roboshop
+spec:
+  serviceName: "mysql-headless"   # Must match headless service
+  replicas: 2
+  selector:
+    matchLabels:
+      project: roboshop
+      component: mysql
+      tier: db
+  template:
+    metadata:
+      labels:
+        project: roboshop
+        component: mysql
+        tier: db
+    spec:
+      containers:
+      - name: mysql
+        image: joindevops/mysql:v1
+
+        # Data directory mount
+        volumeMounts:
+        - name: mysql
+          mountPath: /var/lib/mysql     # Correct MySQL data directory
+
+        # Mount my.cnf from ConfigMap
+        - name: mysql-config
+          mountPath: /etc/mysql/conf.d/my.cnf
+          subPath: my.cnf
+
+      volumes:
+      - name: mysql-config
+        configMap:
+          name: mysql
+
+  # --------------------------------------
+  # 5) PERSISTENT VOLUME CLAIM TEMPLATE
+  # Each pod gets its own PVC
+  # --------------------------------------
+  volumeClaimTemplates:
+  - metadata:
+      name: mysql
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      storageClassName: "roboshop-ebs"
+      resources:
+        requests:
+          storage: 1Gi

@@ -1,0 +1,128 @@
+# -----------------------------------------
+# 1) CONFIGMAP (Environment Variables)
+# -----------------------------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: user
+  namespace: roboshop
+data:
+  MONGO: "true"
+  REDIS_URL: "redis://redis:6379"
+  MONGO_URL: "mongodb://mongodb:27017/users"
+
+---
+# -----------------------------------------
+# 2) USER DEPLOYMENT
+# -----------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user
+  namespace: roboshop
+  labels:
+    project: roboshop
+    component: user
+    tier: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      project: roboshop
+      component: user
+      tier: backend
+  template:
+    metadata:
+      labels:
+        project: roboshop
+        component: user
+        tier: backend
+    spec:
+      containers:
+      - name: user
+        image: venkatesh990/user:v1
+        imagePullPolicy: Always
+
+        # Load all variables from ConfigMap
+        envFrom:
+        - configMapRef:
+            name: user
+
+        # Container port
+        ports:
+        - name: liveness-port
+          containerPort: 8080
+
+        # Resource limits
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "100m"
+            memory: "128Mi"
+
+        # Readiness probe
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: liveness-port
+          failureThreshold: 1
+          periodSeconds: 15
+
+        # Liveness probe
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: liveness-port
+          failureThreshold: 1
+          periodSeconds: 15
+
+---
+# -----------------------------------------
+# 3) USER SERVICE
+# -----------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: user
+  namespace: roboshop
+spec:
+  selector:
+    project: roboshop
+    component: user
+    tier: backend
+  ports:
+    - protocol: TCP
+      port: 8080       # Service port
+      targetPort: 8080 # Container port
+
+---
+# -----------------------------------------
+# 4) HORIZONTAL POD AUTOSCALER
+# -----------------------------------------
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: user
+  namespace: roboshop
+  labels:
+    project: roboshop
+    component: user
+    tier: backend
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: user
+
+  minReplicas: 1
+  maxReplicas: 10
+
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 5    # Production value = 70
