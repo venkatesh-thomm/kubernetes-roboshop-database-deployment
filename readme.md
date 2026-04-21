@@ -1,7 +1,7 @@
 
 # Roboshop Microservices - Kubernetes Deployment Guide
 
-This repository contains **Kubernetes YAML manifests** for all core Roboshop microservices:
+This repository contains **Kubernetes yml manifests** for all core Roboshop microservices:
 
 
 Each microservice includes:
@@ -119,17 +119,27 @@ Used for caching sessions & cart data.
 ### Create Namespace
 ```
 kubectl create namespace roboshop
-```
 
-### Apply All YAMLs
-```
-kubectl apply -f mongodb.yaml
-kubectl apply -f mysql.yaml
-kubectl apply -f redis.yaml
-kubectl apply -f rabbitmq.yaml
-kubectl apply -f catalogue.yaml
-kubectl apply -f cart.yaml
-kubectl apply -f user.yaml
+### Apply All ymls
+kubectl apply -f namespace.yml
+kubectl apply -f ebs-sc.yml
+
+# Databases first
+kubectl apply -f mongodb/manifest.yml
+kubectl apply -f mysql/manifest.yml
+kubectl apply -f redis/manifest.yml
+kubectl apply -f rabbitmq/manifest.yml
+
+# Wait for DBs
+kubectl get pods -n roboshop
+
+# Then apps
+kubectl apply -f catalogue/manifest.yml
+kubectl apply -f cart/manifest.yml
+kubectl apply -f user/manifest.yml
+
+# Delete Pod
+kubectl delete pod -n roboshop --all
 ```
 
 ---
