@@ -162,6 +162,8 @@ kubectl get pods -n roboshop
 kubectl apply -f catalogue/manifest.yml
 kubectl apply -f cart/manifest.yml
 kubectl apply -f user/manifest.yml
+kubectl apply -f frontend/manifest.yml
+
 
 # Delete Pod
 kubectl delete pod -n roboshop --all
