@@ -113,6 +113,9 @@ Used for caching sessions & cart data.
 - Redis Port: **6379**
 
 ---
+
+## Install drivers for EBS CSI 
+
 ```yaml
 #Enable OIDC provider (REQUIRED FIRST)
 eksctl utils associate-iam-oidc-provider \
