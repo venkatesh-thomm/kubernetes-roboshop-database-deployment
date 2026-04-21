@@ -113,6 +113,28 @@ Used for caching sessions & cart data.
 - Redis Port: **6379**
 
 ---
+```yaml
+#Enable OIDC provider (REQUIRED FIRST)
+eksctl utils associate-iam-oidc-provider \
+  --cluster <cluster-name> \
+  --approve
+
+#Create IAM role + attach it to EBS CSI driver (IRSA)
+eksctl create iamserviceaccount \
+  --name ebs-csi-controller-sa \
+  --namespace kube-system \
+  --cluster <cluster-name> \
+  --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy \
+  --approve \
+  --override-existing-serviceaccounts
+
+#Install / update EBS CSI addon
+eksctl create addon \
+  --name aws-ebs-csi-driver \
+  --cluster <cluster-name> \
+  --service-account-role-arn arn:aws:iam::<account-id>:role/<role-name> \
+  --force
+```
 
 # 🚀 Deployment Commands
 
